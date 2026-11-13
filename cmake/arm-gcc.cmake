@@ -1,0 +1,12 @@
+# Cross build with the GNU Arm Embedded toolchain (brew install --cask gcc-arm-embedded,
+# or apt install gcc-arm-none-eabi)
+set(CMAKE_SYSTEM_NAME Generic)
+set(CMAKE_SYSTEM_PROCESSOR arm)
+set(CMAKE_C_COMPILER arm-none-eabi-gcc)
+set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+set(ARM_FLAGS "-mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard")
+set(CMAKE_C_FLAGS_INIT "${ARM_FLAGS} -ffunction-sections -fdata-sections -fno-builtin")
+set(CMAKE_EXE_LINKER_FLAGS_INIT "${ARM_FLAGS} -nostdlib -Wl,--gc-sections")
+set(ARM_LINK_LIBS gcc)
+set(ARM_SIZE arm-none-eabi-size)
+set(ARM_OBJCOPY arm-none-eabi-objcopy)

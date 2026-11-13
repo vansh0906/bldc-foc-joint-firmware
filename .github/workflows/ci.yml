@@ -1,0 +1,82 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  host:
+    name: Firmware unit tests (${{ matrix.cc }}, -Werror, ASan/UBSan, Valgrind)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        cc: [gcc, clang]
+    env:
+      CC: ${{ matrix.cc }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y valgrind
+      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j
+      - run: ./build/unit_tests
+      - run: valgrind -q --error-exitcode=9 ./build/unit_tests > /dev/null
+      - run: cmake -S . -B build-asan -DSANITIZE=ON -DCMAKE_BUILD_TYPE=Debug && cmake --build build-asan -j && ./build-asan/unit_tests
+      - run: ./tools/check_port.sh
+
+  hil:
+    name: Hardware-in-the-loop scenarios + ROS 2 bridge logic
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j
+      - run: python -m pytest -q tests/hil ros2/joint_bus_bridge/test
+      - run: python -m hil.run_all
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hil-report
+          path: |
+            results/
+            docs/img/
+
+  arm:
+    name: STM32G431 + FreeRTOS cross build (${{ matrix.tc }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        tc: [arm-clang, arm-gcc]
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y clang lld llvm gcc-arm-none-eabi
+      - run: cmake -S . -B build-arm -DCMAKE_TOOLCHAIN_FILE=cmake/${{ matrix.tc }}.cmake -DCMAKE_BUILD_TYPE=MinSizeRel
+      - run: cmake --build build-arm
+      - run: |
+          echo '### Firmware size, STM32G431 (${{ matrix.tc }})' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          (llvm-size build-arm/firmware.elf || arm-none-eabi-size build-arm/firmware.elf) >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware-stm32g431-${{ matrix.tc }}
+          path: |
+            build-arm/firmware.elf
+            build-arm/firmware.bin
+            build-arm/firmware.map
+
+  ros2:
+    name: ROS 2 Jazzy node against the simulated bus
+    runs-on: ubuntu-latest
+    container: ros:jazzy
+    continue-on-error: true      # written for Jazzy; first run happens here (see README)
+    steps:
+      - uses: actions/checkout@v4
+      - run: apt-get update && apt-get install -y cmake build-essential ros-jazzy-diagnostic-msgs ros-jazzy-std-srvs
+      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j --target pty_sim
+      - shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          cd ros2 && colcon build --packages-select joint_bus_bridge && source install/setup.bash
+          ../build/pty_sim --joints 2 --link /tmp/jointbus & sleep 15
+          ros2 run joint_bus_bridge bridge --ros-args -p port:=/tmp/jointbus -p "joint_ids:=[1,2]" &
+          sleep 3
+          ros2 service call /joint_bus_bridge/enable std_srvs/srv/Trigger
+          timeout 10 ros2 topic echo --once /joint_states

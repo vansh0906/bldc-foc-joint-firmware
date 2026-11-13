@@ -1,0 +1,12 @@
+# Cross build with clang + lld (no Arm GCC needed): apt install clang lld
+set(CMAKE_SYSTEM_NAME Generic)
+set(CMAKE_SYSTEM_PROCESSOR arm)
+set(CMAKE_C_COMPILER clang)
+set(CMAKE_C_COMPILER_TARGET thumbv7em-none-eabihf)
+set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+set(ARM_FLAGS "--target=thumbv7em-none-eabihf -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard")
+set(CMAKE_C_FLAGS_INIT "${ARM_FLAGS} -ffunction-sections -fdata-sections -fno-builtin -ffreestanding")
+set(CMAKE_EXE_LINKER_FLAGS_INIT "${ARM_FLAGS} -nostdlib -fuse-ld=lld -Wl,--gc-sections")
+set(ARM_LINK_LIBS "")
+find_program(ARM_SIZE NAMES llvm-size llvm-size-18)
+find_program(ARM_OBJCOPY NAMES llvm-objcopy llvm-objcopy-18)
