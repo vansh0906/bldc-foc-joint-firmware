@@ -55,28 +55,28 @@ Details, timing budget and the bus protocol: [docs/DESIGN.md](docs/DESIGN.md).
 ## Quick start (macOS or Linux)
 
 ```bash
-cmake -S . -B build && cmake --build build -j          # firmware (host build), simulator, unit tests
-./build/unit_tests                                     # 13 unit-test groups
+cmake -S . -B build && cmake --build build -j
+./build/unit_tests
 python3 -m pip install -r requirements.txt
-python3 -m pytest -q                                   # 19 HIL scenarios + protocol tests
-python3 -m hil.run_all                                 # results/REPORT.md, results/summary.json, docs/img/*.png
+python3 -m pytest -q
+python3 -m hil.run_all
 ```
 
 Talk to simulated joints the way you would to real ones through a USB-RS485 adapter:
 
 ```bash
-./build/pty_sim --joints 2 --link /tmp/jointbus &      # two joints behind a pseudo-terminal, real time
+./build/pty_sim --joints 2 --link /tmp/jointbus &
 python3 tools/jointctl.py --port /tmp/jointbus scan
 python3 tools/jointctl.py --port /tmp/jointbus spin 1 --vel 25 --seconds 3
 python3 tools/jointctl.py --port /tmp/jointbus hold 2 --kp 1.0 --kd 0.02
 ```
 
-Cross-build for the STM32G431 (either toolchain):
+Cross-build for the STM32G431: run the first line for Arm GCC **or** the second for clang + lld, then the build:
 
 ```bash
-cmake -S . -B build-arm -DCMAKE_TOOLCHAIN_FILE=cmake/arm-gcc.cmake -DCMAKE_BUILD_TYPE=MinSizeRel   # Arm GCC
-cmake -S . -B build-arm -DCMAKE_TOOLCHAIN_FILE=cmake/arm-clang.cmake -DCMAKE_BUILD_TYPE=MinSizeRel # clang + lld
-cmake --build build-arm                                 # build-arm/firmware.elf / .bin / .map
+cmake -S . -B build-arm -DCMAKE_TOOLCHAIN_FILE=cmake/arm-gcc.cmake -DCMAKE_BUILD_TYPE=MinSizeRel
+cmake -S . -B build-arm -DCMAKE_TOOLCHAIN_FILE=cmake/arm-clang.cmake -DCMAKE_BUILD_TYPE=MinSizeRel
+cmake --build build-arm
 ```
 
 FreeRTOS-Kernel V11.2.0 is fetched from GitHub at configure time (or pass `-DFREERTOS_KERNEL_PATH=...`).

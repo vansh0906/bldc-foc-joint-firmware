@@ -42,6 +42,11 @@ def main():
     ho.add_argument("--kd", type=float, default=0.02); ho.add_argument("--seconds", type=float, default=3.0)
     a = ap.parse_args()
 
+    if not os.path.exists(a.port):
+        print(f"{a.port} does not exist. Start the joints first, in another window:\n"
+              f"  ./build/pty_sim --joints 2 --link {a.port}\n"
+              "(or plug in the USB-RS485 adapter and pass its /dev/... path)")
+        return 1
     bus = JointBus(SerialPort(a.port, a.baud), [getattr(a, "id", 1)])
     if a.cmd == "scan":
         found = bus.scan()

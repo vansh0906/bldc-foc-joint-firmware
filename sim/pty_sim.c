@@ -34,7 +34,11 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--seed") && i + 1 < argc) seed = (unsigned)atoi(argv[++i]);
         else if (!strcmp(argv[i], "--link") && i + 1 < argc) link = argv[++i];
         else if (!strcmp(argv[i], "--no-cal")) cal = 0;
-        else { fprintf(stderr, "usage: %s [--joints N] [--seed S] [--link PATH] [--no-cal]\n", argv[0]); return 2; }
+        else {
+            fprintf(stderr, "unknown argument '%s'\nusage: %s [--joints N] [--seed S] [--link PATH] [--no-cal]\n"
+                    "(zsh: do not paste '# comments' after a command)\n", argv[i], argv[0]);
+            return 2;
+        }
     }
     sim_t *s = sim_new(nj, seed);
     if (!s) { fprintf(stderr, "1..%d joints\n", SIM_MAX_J); return 2; }
@@ -59,6 +63,7 @@ int main(int argc, char **argv)
         if (symlink(name, link) < 0) perror("symlink");
     }
     printf("%s\n", link ? link : name);
+    fprintf(stderr, "joints ready on %s (Ctrl-C to stop)\n", link ? link : name);
     fflush(stdout);
     signal(SIGINT, on_sig);
     signal(SIGTERM, on_sig);
