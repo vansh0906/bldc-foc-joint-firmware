@@ -1,20 +1,31 @@
 """Serial port for a USB-RS485 adapter (or the simulator's pseudo-terminal).
 
-Uses pyserial when it is installed (needed for 4 Mbaud on macOS); otherwise plain termios,
-which is enough on Linux and for the simulator's pty."""
+Uses pyserial for a real adapter when it is installed (needed for 4 Mbaud on macOS); plain
+termios for the simulator's pty (pyserial's custom-baud ioctl fails on a pty on macOS) and when
+pyserial is not installed."""
 import os
 import termios
+
+
+def _is_pty(path):
+    """The simulator's pseudo-terminal (baud rate means nothing there)."""
+    real = os.path.realpath(path)
+    return "/ttys" in real or "/pts/" in real
 
 
 class SerialPort:
     def __init__(self, path, baud=4_000_000):
         self._ser = None
-        try:
-            import serial  # type: ignore
-            self._ser = serial.Serial(path, baudrate=baud, timeout=0, write_timeout=0.1)
-            return
-        except ImportError:
-            pass
+        if not _is_pty(path):
+            try:
+                import serial  # type: ignore
+                self._ser = serial.Serial(path, baudrate=baud, timeout=0, write_timeout=0.1)
+                return
+            except ImportError:
+                pass
+            except OSError:
+                # macOS pyserial sets non-standard rates with an ioctl that some devices refuse
+                self._ser = None
         self.fd = os.open(path, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
         attrs = termios.tcgetattr(self.fd)
         attrs[0] = 0                                   # iflag: raw
